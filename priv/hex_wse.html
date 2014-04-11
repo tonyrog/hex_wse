@@ -1,0 +1,27 @@
+<html>
+<head>
+<title>HEX WSE GUI</title>
+
+<script src='wse.js'></script>
+<script src='canvas.js'></script>
+
+<script>
+
+window.onload = function() {
+   if (Wse.open("ws://"+location.hostname+":1234/websession")) {
+      Wse.start('hex_wse', 'run', ["x1"]);
+   }
+   else
+     alert("WebSockets not supported");
+};
+
+</script>
+</head>
+
+<body>
+<p>Start canvas</p>
+<canvas id="x1" width=320 height=240>
+</canvas>
+<p>End canvas</p>
+</body>
+</html>

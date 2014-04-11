@@ -1,0 +1,11 @@
+{application, hex_wse,
+ [
+  {description, "hex websocket based gui plugin"},
+  {vsn, "0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { hex_wse_app, []}}
+ ]}.
