@@ -16,8 +16,6 @@ very soon. This is just a peek preview release.
 
     [{type,button},{id,a},{text,"Press"},{x,1},{y,1}]
 
-    [{type,slider},{id,b},{x,10},{y,1},{width,100},{height,5}]
-
     [{type,button},{id,c},{image,"but.png"},{x,40},{y,40}]
 
 # Output events
