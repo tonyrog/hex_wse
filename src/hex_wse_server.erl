@@ -58,7 +58,7 @@
 	  valign  = center :: left|right|center,
 	  min     :: number(),          %% type=value|slider
 	  max     :: number(),          %% type=value|slider
-	  format = "~w" :: string(),   %% io:format format
+	  format = "~w" :: string(),    %% io:format format
 	  value =0 :: number(),         %% type=value|slider
 	  animate,                      %% animation state.
 	  font    :: string()           %% type=text|button|value
@@ -114,7 +114,7 @@ mod_event(Dir, Flags) ->
     gen_server:call(?MODULE, {mod_event, Dir, Flags}).
 
 new_session(Ws, Where) ->
-    io:format("calling new session: ws=~p, where=~p\n", [Ws, Where]),
+    lager:debug("calling new session: ws=~p, where=~p\n", [Ws, Where]),
     gen_server:call(?MODULE, {new_session, Ws, Where}).
 
 stop() ->
@@ -240,15 +240,15 @@ handle_call({mod_event,_Dir,Flags}, _From, State) ->
 	    end
     end;
 handle_call({new_session, Ws, Where}, _From, State) ->
-    io:format("new_session Ws=~p, Where=~p\n", [Ws,Where]),
+    lager:debug("new_session Ws=~p, Where=~p\n", [Ws,Where]),
     Canvas2 = wse:new(Ws, "CanvasClass", [Where,true]),
-    io:format("Canvas2 = ~p\n", [Canvas2]),
     {ok,IRef} = wse:create_event(Ws),
-
     %% create a function 
     IFunc = wse:newf(Ws, "event",
-		     "Wse.notify("++integer_to_list(IRef)++
-			 ",Ei.tuple(Ei.atom(event.type),event.button,Ei.tuple(event.clientX,event.clientY,0)))"),
+		     "{ var c = document.getElementById('"++Where++"'); " ++
+		     "  var r = c.getBoundingClientRect(); " ++
+		     " Wse.notify("++integer_to_list(IRef) ++
+			 ",Ei.tuple(Ei.atom(event.type),event.button,Ei.tuple(event.clientX - r.left,event.clientY-r.top,0))); }"),
     wse:call(Ws, wse:id(Where), addEventListener, [mousedown,IFunc,false]),
     wse:call(Ws, wse:id(Where), addEventListener, [mouseup,IFunc,false]),
 
@@ -256,7 +256,6 @@ handle_call({new_session, Ws, Where}, _From, State) ->
     Sess = #session {ws=Ws,mon=Mon,where=Where,canvas=Canvas2,iref=IRef},
     Sessions = [Sess | State#state.sessions],
     State1 = State#state { sessions = Sessions },
-    io:format("Session = ~p\n", [Sess]),
     redraw_session(Sess, State1),
     {reply, ok, State1};
 handle_call(stop, _From, State) ->
@@ -665,55 +664,48 @@ each_widget(Fun, Ws) ->
 
 %% http://www.w3schools.com/tags/ref_canvas.asp
 draw_widget(W, Ws, Canvas) ->
-    io:format("draw widget: ~p\n", [W]),
     case W#widget.type of
 	button ->
 	    draw_text_box(Ws, Canvas, W, W#widget.text);
-	%% slider ->
-	%%     epx_gc:draw(
-	%%       fun() ->
-	%% 	      epx_gc:set_fill_style(solid),
-	%% 	      epx_gc:set_fill_color(W#widget.color),
-	%% 	      epx:draw_rectangle(Win#widget.image,
-	%% 				 W#widget.x, W#widget.y,
-	%% 				 W#widget.width, W#widget.height),
-	%% 	      epx_gc:set_foreground_color(16#00000000),
-	%% 	      epx_gc:set_fill_style(none),
-	%% 	      epx:draw_rectangle(Win#widget.image,
-	%% 				 W#widget.x, W#widget.y,
-	%% 				 W#widget.width, W#widget.height),
-	%% 	      %% draw value bar
-	%% 	      #widget { min=Min, max=Max, value=Value} = W,
-	%% 	      if is_number(Min),is_number(Max),is_number(Value) ->
-	%% 		      Delta = abs(Max - Min),
-	%% 		      R = if Min < Max ->
-	%% 				  V = if Value < Min -> Min;
-	%% 					 Value > Max -> Max;
-	%% 					 true -> Value
-	%% 				      end,
-	%% 				  (V - Min)/Delta;
-	%% 			     Min > Max -> %% reversed axis
-	%% 				  V = if Value > Min -> Min;
-	%% 					 Value < Max -> Max;
-	%% 					 true -> Value
-	%% 				      end,
-	%% 				  (V - Max)/Delta;
-	%% 			     true ->
-	%% 				  0.5
-	%% 			  end,
-	%% 		      %% draw value marker
-	%% 		      Wm = 3,    %% marker width
-	%% 		      X = trunc(W#widget.x + R*((W#widget.width-Wm)-1)),
-	%% 		      Y = W#widget.y + 2,
-	%% 		      epx_gc:set_fill_style(solid),
-	%% 		      epx_gc:set_fill_color(16#00000000),
-	%% 		      epx:draw_rectangle(Win#widget.image,
-	%% 					 X, Y, Wm, W#widget.height-4);
-	%% 		 true ->
-	%% 		      ok
-			      
-	%% 	      end
-	%%       end);
+	slider ->
+	    set_color(Ws,Canvas,W),
+	    wse:call(Ws,Canvas,fillRect,
+		     [W#widget.x, W#widget.y,
+		      W#widget.width, W#widget.height]),
+	    set_color(Ws,Canvas,16#000000),
+	    wse:call(Ws,Canvas,strokeRect,
+		     [W#widget.x, W#widget.y,
+		      W#widget.width, W#widget.height]),
+	    %% draw value bar
+	    #widget { min=Min, max=Max, value=Value} = W,
+	    if is_number(Min),is_number(Max),is_number(Value) ->
+		    Delta = abs(Max - Min),
+		    R = if Min < Max ->
+				V = if Value < Min -> Min;
+				       Value > Max -> Max;
+				       true -> Value
+				    end,
+				(V - Min)/Delta;
+			   Min > Max -> %% reversed axis
+				V = if Value > Min -> Min;
+				       Value < Max -> Max;
+				       true -> Value
+				    end,
+				(V - Max)/Delta;
+			   true ->
+				0.5
+			end,
+		    %% draw value marker
+		    Wm = 3,    %% marker width
+		    X = trunc(W#widget.x + R*((W#widget.width-Wm)-1)),
+		    Y = W#widget.y + 2,
+		    set_color(Ws,Canvas,16#000000),
+		    wse:call(Ws,Canvas,fillRect,
+			     [X, Y, Wm, W#widget.height-4]);
+	       true ->
+		    ok
+	    end;
+
 	value ->
 	    Value = W#widget.value,
 	    Format = W#widget.format,
