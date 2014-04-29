@@ -141,7 +141,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(Args) ->
     Port = proplists:get_value(port, Args, 1234),
-    Wse  = spawn_link(fun() -> wse_server:init(Port) end),
+    Wse  = spawn_link(fun() -> wse_server:init([{port,Port}]) end),
     Joined = hex:auto_join(hex_wse),
     {ok, #state{joined = Joined,
 		wse_pid = Wse,
