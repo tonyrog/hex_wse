@@ -293,8 +293,8 @@ CanvasClass.prototype.batch = function(commands) {
 	    ctx.setTransform(argv[1],argv[2],argv[3],argv[4],argv[5]);
 	    break;
 	case 'globalAlpha':	ctx.globalAlpha=argv[1]; break;
-	case 'globalCopositeOperation':
-	    ctx.globalCopositeOperation=argv[1]; break;
+	case 'globalCompositeOperation':
+	    ctx.globalCompositeOperation=argv[1]; break;
 	case 'strokeStyle': ctx.strokeStyle=argv[1]; break;
 	case 'fillStyle':   ctx.fillStyle=argv[1]; break;
 	case 'lineWidth':   ctx.lineWidth=argv[1]; break;

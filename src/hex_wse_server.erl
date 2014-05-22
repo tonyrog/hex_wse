@@ -94,7 +94,7 @@
 	  sessions = [] :: [#session{}],
 	  default_font = "12px Arial",  %% default
 
-	  widgets :: dict()   %% term => #widget{}
+	  widgets :: dict:dict()   %% term => #widget{}
 	 }).
 
 
@@ -633,7 +633,10 @@ widget_set([Option|Flags], W) ->
 	    V1 = clamp(V, W#widget.min, W#widget.max),
 	    widget_set(Flags, W#widget{value=V1});
 	{format,F} when is_list(F) ->
-	    widget_set(Flags, W#widget{format=F})
+	    widget_set(Flags, W#widget{format=F});
+	_ ->
+	    lager:debug("option ignored ~p", [Option]),
+	    widget_set(Flags, W)
     end;
 widget_set([], W) ->
     W.
@@ -672,7 +675,7 @@ draw_widget(W, Ws, Canvas) ->
 	    wse:call(Ws,Canvas,fillRect,
 		     [W#widget.x, W#widget.y,
 		      W#widget.width, W#widget.height]),
-	    set_color(Ws,Canvas,16#000000),
+	    set_canvas_color(Ws,Canvas,16#000000),
 	    wse:call(Ws,Canvas,strokeRect,
 		     [W#widget.x, W#widget.y,
 		      W#widget.width, W#widget.height]),
@@ -699,7 +702,7 @@ draw_widget(W, Ws, Canvas) ->
 		    Wm = 3,    %% marker width
 		    X = trunc(W#widget.x + R*((W#widget.width-Wm)-1)),
 		    Y = W#widget.y + 2,
-		    set_color(Ws,Canvas,16#000000),
+		    set_canvas_color(Ws,Canvas,16#000000),
 		    wse:call(Ws,Canvas,fillRect,
 			     [X, Y, Wm, W#widget.height-4]);
 	       true ->
@@ -728,6 +731,14 @@ draw_widget(W, Ws, Canvas) ->
 	rectangle ->
 	    set_color(Ws,Canvas,W),
 	    case W#widget.fill of
+		blend ->
+		    wse:call(Ws,Canvas,globalCompositeOperation,
+			     [lighter]),
+		    wse:call(Ws,Canvas,fillRect,
+			     [W#widget.x, W#widget.y,
+			      W#widget.width, W#widget.height]),
+		    wse:call(Ws,Canvas,globalCompositeOperation,
+			     ['source-over']);
 		solid ->
 		    wse:call(Ws,Canvas,fillRect,
 			     [W#widget.x, W#widget.y,
@@ -745,11 +756,16 @@ draw_widget(W, Ws, Canvas) ->
 	    R = min(A,B),
 	    X = W#widget.x + A,
 	    Y = W#widget.y + B,
-
 	    wse:call(Ws, Canvas, beginPath, []),
 	    wse:call(Ws, Canvas, arc, [X,Y,R,0.0,2*math:pi(),false]),
 	    wse:call(Ws, Canvas, closePath, []),
 	    case W#widget.fill of
+		blend ->
+		    wse:call(Ws,Canvas,globalCompositeOperation,
+			     [lighter]),
+		    wse:call(Ws, Canvas, fill, []),
+		    wse:call(Ws,Canvas,globalCompositeOperation,
+			     ['source-over']);
 		solid ->
 		    wse:call(Ws, Canvas, fill, []);
 		none ->
@@ -795,6 +811,14 @@ draw_widget(W, Ws, Canvas) ->
 draw_text_box(Ws, Canvas, W, Text) ->
     set_color(Ws,Canvas,W),
     case W#widget.fill of
+	blend ->
+	    wse:call(Ws,Canvas,globalCompositeOperation,
+		     [lighter]),
+	    wse:call(Ws,Canvas,fillRect,
+		     [W#widget.x, W#widget.y,
+		      W#widget.width, W#widget.height]),
+	    wse:call(Ws,Canvas,globalCompositeOperation,
+		     ['source-over']);
 	solid ->
 	    wse:call(Ws,Canvas,fillRect,
 		     [W#widget.x, W#widget.y,
@@ -836,6 +860,9 @@ set_color(Wse,Canvas,W) ->
 		    color_interpolate(V, AColor, Color0);
 		_ -> Color0
 	    end,
+    set_canvas_color(Wse,Canvas,Color).
+
+set_canvas_color(Wse,Canvas,Color) ->
     wse:call(Wse,Canvas,strokeStyle,[web_color(Color)]),
     wse:call(Wse,Canvas,fillStyle,[web_color(Color)]).
 
@@ -875,7 +902,8 @@ color_interpolate_argb(V, <<A0,R0,G0,B0>>,<<A1,R1,G1,B1>>)
     <<(clamp_byte(A)),(clamp_byte(R)),(clamp_byte(G)),(clamp_byte(B))>>.
 
 web_color(Color) ->
-    [$#|tl(integer_to_list(Color+16#1000000, 16))].
+    Color1 = Color band 16#ffffff,  %% strip alpha, not used here
+    [$#|tl(integer_to_list(Color1+16#1000000, 16))].
     
 clamp_byte(A) when A > 255 -> 255;
 clamp_byte(A) when A < 0  -> 0;
