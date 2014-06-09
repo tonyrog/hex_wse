@@ -795,14 +795,7 @@ draw_widget(W, Ws, Canvas) ->
 	%% 	      end
 	%%       end);
 	text ->
-	    set_color(Ws,Canvas,W),
-	    wse:call(Ws,Canvas,font,[W#widget.font]),
-	    wse:call(Ws,Canvas,textAlign,[left]),
-	    %% black text color (fixme)
-	    wse:call(Ws,Canvas,fillStyle,[web_color(16#00000)]),
-	    wse:call(Ws,Canvas,fillText,[W#widget.text,
-					 W#widget.x,
-					 W#widget.y]);
+	    draw_text_box(Ws, Canvas, W, W#widget.text);
 	Type ->
 	    lager:debug("bad widget type ~p", [Type])
     end.
