@@ -39,6 +39,8 @@
 
 -define(SERVER, ?MODULE).
 
+-define(DICT_T, term()).  %% dict:dict()
+
 -record(widget,
 	{
 	  id,        %% named widgets
@@ -94,7 +96,7 @@
 	  sessions = [] :: [#session{}],
 	  default_font = "12px Arial",  %% default
 
-	  widgets :: dict:dict()   %% term => #widget{}
+	  widgets :: ?DICT_T   %% term => #widget{}
 	 }).
 
 
