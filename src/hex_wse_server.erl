@@ -45,8 +45,9 @@
 	{
 	  id,        %% named widgets
 	  type,      %% button,rectangle,slider ...
-	  window = default,  %% id of window (if type != window)
+	  window = screen,   %% id of window (if type != window)
 	  state  = normal,   %% or active,selected ..
+	  static = false,    %% object may not be deleted
 	  x = 0   :: integer(),
 	  y = 0   :: integer(),
 	  width  = 32 :: non_neg_integer(),
@@ -220,10 +221,22 @@ handle_call({init_event,_Dir,Flags}, _From, State) ->
 			    {reply, ok, State#state{widgets=Ws1}}
 		    catch
 			error:Reason ->
+			    io:format("widget ~p not created ~p\n",
+				      [ID, Reason]),
 			    {reply, {error,Reason}, State}
 		    end;
-		{ok,_W} -> %% overwrite? merge?
-		    {reply, {error, ealready}, State}
+		{ok,W} ->
+		    try widget_set(Flags,W) of
+			W1 ->
+			    Ws1 = dict:store(ID,W1,State#state.widgets),
+			    self() ! refresh,
+			    {reply, ok, State#state{widgets=Ws1}}
+		    catch
+			error:Reason ->
+			    io:format("widget ~p not updated ~p\n",
+				      [ID, Reason]),
+			    {reply, {error,Reason}, State}
+		    end
 	    end
     end;
 handle_call({mod_event,_Dir,Flags}, _From, State) ->
@@ -243,6 +256,7 @@ handle_call({mod_event,_Dir,Flags}, _From, State) ->
     end;
 handle_call({new_session, Ws, Where}, _From, State) ->
     lager:debug("new_session Ws=~p, Where=~p\n", [Ws,Where]),
+    %% FIXME: pick up width and height!!!
     Canvas2 = wse:new(Ws, "CanvasClass", [Where,true]),
     {ok,IRef} = wse:create_event(Ws),
     %% create a function 
@@ -658,18 +672,21 @@ redraw_state(State) ->
 
 redraw_session(#session { ws=Ws, canvas=Canvas }, State) ->
     wse:call(Ws, Canvas, clearRect, [0,0,320,240]),
-    each_widget(fun(W) -> draw_widget(W, Ws, Canvas) end,
-		State#state.widgets),
+    each_widget(fun(W) -> draw_widget(W, Ws, Canvas) end, State),
     wse:call(Ws, Canvas, swap, []),
     State.
 
-each_widget(Fun, Ws) ->
-    dict:fold(fun(_K,W,_) -> Fun(W) end, [], Ws),
+each_widget(Fun, State) ->
+    dict:fold(fun(_K,W,_) -> Fun(W) end, [], State#state.widgets),
     ok.
 
 %% http://www.w3schools.com/tags/ref_canvas.asp
 draw_widget(W, Ws, Canvas) ->
     case W#widget.type of
+	window ->
+	    %% do not draw (yet), we may use this
+	    %% to draw embedded windows in the future
+	    ok;
 	button ->
 	    draw_text_box(Ws, Canvas, W, W#widget.text);
 	slider ->
